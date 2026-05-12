@@ -1,2306 +1,275 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>资料分析斩 - 自动更新版</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        :root {
-            --primary-color: #4A90D9;
-            --secondary-color: #2C5282;
-            --success-color: #48BB78;
-            --warning-color: #ED8936;
-            --danger-color: #E53E3E;
-            --bg-color: #1A202C;
-            --card-bg: #2D3748;
-            --text-color: #E2E8F0;
-            --text-muted: #A0AEC0;
-        }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: var(--bg-color);
-            color: var(--text-color);
-            min-height: 100vh;
-            overflow-x: hidden;
-        }
-        
-        /* 启动画面 */
-        .splash-screen {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(135deg, #1A202C 0%, #2D3748 100%);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 9999;
-            transition: opacity 0.5s ease;
-        }
-        
-        .splash-screen.hidden {
-            opacity: 0;
-            pointer-events: none;
-        }
-        
-        .splash-logo {
-            font-size: 48px;
-            font-weight: bold;
-            color: var(--primary-color);
-            margin-bottom: 20px;
-            text-shadow: 0 0 20px rgba(74, 144, 217, 0.5);
-        }
-        
-        .splash-loading {
-            width: 200px;
-            height: 4px;
-            background: var(--card-bg);
-            border-radius: 2px;
-            overflow: hidden;
-        }
-        
-        .splash-loading-bar {
-            width: 0%;
-            height: 100%;
-            background: linear-gradient(90deg, var(--primary-color), var(--success-color));
-            border-radius: 2px;
-            transition: width 0.3s ease;
-        }
-        
-        .splash-status {
-            margin-top: 15px;
-            color: var(--text-muted);
-            font-size: 14px;
-        }
-        
-        /* 更新弹窗 */
-        .update-modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 10000;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s ease;
-        }
-        
-        .update-modal.show {
-            opacity: 1;
-            pointer-events: auto;
-        }
-        
-        .update-dialog {
-            background: var(--card-bg);
-            border-radius: 16px;
-            padding: 30px;
-            max-width: 400px;
-            width: 90%;
-            text-align: center;
-            transform: scale(0.9);
-            transition: transform 0.3s ease;
-        }
-        
-        .update-modal.show .update-dialog {
-            transform: scale(1);
-        }
-        
-        .update-icon {
-            width: 60px;
-            height: 60px;
-            background: linear-gradient(135deg, var(--primary-color), var(--success-color));
-            border-radius: 50%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            margin: 0 auto 20px;
-            font-size: 30px;
-        }
-        
-        .update-title {
-            font-size: 22px;
-            font-weight: bold;
-            margin-bottom: 10px;
-        }
-        
-        .update-version {
-            color: var(--primary-color);
-            font-size: 14px;
-            margin-bottom: 15px;
-        }
-        
-        .update-log {
-            background: var(--bg-color);
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 20px;
-            text-align: left;
-            font-size: 14px;
-            line-height: 1.6;
-            max-height: 150px;
-            overflow-y: auto;
-        }
-        
-        .update-buttons {
-            display: flex;
-            gap: 10px;
-        }
-        
-        .update-btn {
-            flex: 1;
-            padding: 12px 20px;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-        
-        .update-btn.primary {
-            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-            color: white;
-        }
-        
-        .update-btn.secondary {
-            background: var(--bg-color);
-            color: var(--text-color);
-        }
-        
-        .update-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        }
-        
-        .force-update-notice {
-            color: var(--danger-color);
-            font-size: 12px;
-            margin-top: 10px;
-        }
-        
-        /* 离线提示 */
-        .offline-banner {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            background: var(--warning-color);
-            color: white;
-            padding: 8px;
-            text-align: center;
-            font-size: 13px;
-            z-index: 9998;
-            transform: translateY(-100%);
-            transition: transform 0.3s ease;
-        }
-        
-        .offline-banner.show {
-            transform: translateY(0);
-        }
-        
-        /* 主容器 */
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            padding-bottom: 100px;
-        }
-        
-        /* 头部 */
-        .header {
-            text-align: center;
-            padding: 30px 0;
-        }
-        
-        .app-title {
-            font-size: 32px;
-            font-weight: bold;
-            background: linear-gradient(135deg, var(--primary-color), var(--success-color));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            margin-bottom: 10px;
-        }
-        
-        .app-subtitle {
-            color: var(--text-muted);
-            font-size: 14px;
-        }
-        
-        /* 统计面板 */
-        .stats-panel {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
-            margin-bottom: 30px;
-        }
-        
-        .stat-card {
-            background: var(--card-bg);
-            border-radius: 12px;
-            padding: 20px;
-            text-align: center;
-        }
-        
-        .stat-value {
-            font-size: 28px;
-            font-weight: bold;
-            color: var(--primary-color);
-        }
-        
-        .stat-label {
-            font-size: 12px;
-            color: var(--text-muted);
-            margin-top: 5px;
-        }
-        
-        /* 进度条 */
-        .progress-section {
-            background: var(--card-bg);
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 30px;
-        }
-        
-        .progress-header {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 10px;
-        }
-        
-        .progress-bar {
-            height: 8px;
-            background: var(--bg-color);
-            border-radius: 4px;
-            overflow: hidden;
-        }
-        
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, var(--primary-color), var(--success-color));
-            border-radius: 4px;
-            transition: width 0.5s ease;
-        }
-        
-        /* 卡片网格 */
-        .cards-section {
-            margin-bottom: 30px;
-        }
-        
-        .section-title {
-            font-size: 18px;
-            font-weight: bold;
-            margin-bottom: 15px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .cards-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
-            gap: 10px;
-        }
-        
-        .card-item {
-            aspect-ratio: 1;
-            background: var(--card-bg);
-            border-radius: 8px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            position: relative;
-        }
-        
-        .card-item:hover {
-            transform: scale(1.05);
-            background: var(--primary-color);
-        }
-        
-        .card-item.mastered {
-            background: var(--success-color);
-        }
-        
-        .card-item.learning {
-            background: var(--warning-color);
-        }
-        
-        .card-item.new {
-            background: var(--card-bg);
-        }
-        
-        .card-item .status-dot {
-            position: absolute;
-            top: 4px;
-            right: 4px;
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: white;
-        }
-        
-        /* 学习界面 */
-        .study-screen {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: var(--bg-color);
-            z-index: 1000;
-            display: none;
-            flex-direction: column;
-        }
-        
-        .study-screen.active {
-            display: flex;
-        }
-        
-        .study-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 20px;
-            background: var(--card-bg);
-        }
-        
-        .study-close {
-            background: none;
-            border: none;
-            color: var(--text-color);
-            font-size: 24px;
-            cursor: pointer;
-        }
-        
-        .study-progress {
-            text-align: center;
-        }
-        
-        .study-card-container {
-            flex: 1;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-            perspective: 1000px;
-        }
-        
-        .study-card {
-            width: 100%;
-            max-width: 500px;
-            min-height: 400px;
-            position: relative;
-            transform-style: preserve-3d;
-            transition: transform 0.6s ease;
-            cursor: pointer;
-        }
-        
-        .study-card.flipped {
-            transform: rotateY(180deg);
-        }
-        
-        .card-front, .card-back {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            background: var(--card-bg);
-            border-radius: 16px;
-            padding: 30px;
-            backface-visibility: hidden;
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .card-back {
-            transform: rotateY(180deg);
-        }
-        
-        .card-number {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            background: var(--primary-color);
-            color: white;
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: bold;
-        }
-        
-        .card-category {
-            color: var(--primary-color);
-            font-size: 12px;
-            font-weight: bold;
-            margin-bottom: 10px;
-        }
-        
-        .card-title {
-            font-size: 22px;
-            font-weight: bold;
-            margin-bottom: 20px;
-        }
-        
-        .card-content {
-            flex: 1;
-            line-height: 1.8;
-            font-size: 15px;
-        }
-        
-        .card-formula {
-            background: var(--bg-color);
-            padding: 15px;
-            border-radius: 8px;
-            margin: 10px 0;
-            font-family: 'Courier New', monospace;
-            color: var(--success-color);
-        }
-        
-        .card-example {
-            background: rgba(74, 144, 217, 0.1);
-            padding: 15px;
-            border-radius: 8px;
-            margin-top: 15px;
-            border-left: 3px solid var(--primary-color);
-        }
-        
-        .card-example-title {
-            font-weight: bold;
-            color: var(--primary-color);
-            margin-bottom: 8px;
-        }
-        
-        .card-tip {
-            background: rgba(237, 137, 54, 0.1);
-            padding: 10px;
-            border-radius: 8px;
-            margin-top: 10px;
-            font-size: 13px;
-            border-left: 3px solid var(--warning-color);
-        }
-        
-        .study-buttons {
-            display: flex;
-            gap: 10px;
-            padding: 20px;
-            background: var(--card-bg);
-        }
-        
-        .study-btn {
-            flex: 1;
-            padding: 15px;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-        
-        .study-btn.again {
-            background: var(--danger-color);
-            color: white;
-        }
-        
-        .study-btn.hard {
-            background: var(--warning-color);
-            color: white;
-        }
-        
-        .study-btn.good {
-            background: var(--primary-color);
-            color: white;
-        }
-        
-        .study-btn.easy {
-            background: var(--success-color);
-            color: white;
-        }
-        
-        .study-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        }
-        
-        /* 设置页面 */
-        .settings-screen {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: var(--bg-color);
-            z-index: 1000;
-            display: none;
-            flex-direction: column;
-        }
-        
-        .settings-screen.active {
-            display: flex;
-        }
-        
-        .settings-header {
-            display: flex;
-            align-items: center;
-            padding: 20px;
-            background: var(--card-bg);
-        }
-        
-        .settings-back {
-            background: none;
-            border: none;
-            color: var(--text-color);
-            font-size: 24px;
-            cursor: pointer;
-            margin-right: 15px;
-        }
-        
-        .settings-title {
-            font-size: 20px;
-            font-weight: bold;
-        }
-        
-        .settings-content {
-            flex: 1;
-            padding: 20px;
-            overflow-y: auto;
-        }
-        
-        .settings-group {
-            background: var(--card-bg);
-            border-radius: 12px;
-            margin-bottom: 20px;
-            overflow: hidden;
-        }
-        
-        .settings-group-title {
-            padding: 15px 20px;
-            font-weight: bold;
-            color: var(--primary-color);
-            border-bottom: 1px solid var(--bg-color);
-        }
-        
-        .settings-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 15px 20px;
-            border-bottom: 1px solid var(--bg-color);
-        }
-        
-        .settings-item:last-child {
-            border-bottom: none;
-        }
-        
-        .settings-item-label {
-            font-size: 15px;
-        }
-        
-        .settings-item-value {
-            color: var(--text-muted);
-            font-size: 14px;
-        }
-        
-        .settings-toggle {
-            width: 50px;
-            height: 28px;
-            background: var(--bg-color);
-            border-radius: 14px;
-            position: relative;
-            cursor: pointer;
-            transition: background 0.3s ease;
-        }
-        
-        .settings-toggle.active {
-            background: var(--success-color);
-        }
-        
-        .settings-toggle::after {
-            content: '';
-            position: absolute;
-            width: 24px;
-            height: 24px;
-            background: white;
-            border-radius: 50%;
-            top: 2px;
-            left: 2px;
-            transition: transform 0.3s ease;
-        }
-        
-        .settings-toggle.active::after {
-            transform: translateX(22px);
-        }
-        
-        .check-update-btn {
-            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-        
-        .check-update-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(74, 144, 217, 0.3);
-        }
-        
-        .check-update-btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-        
-        .version-info {
-            text-align: center;
-            padding: 20px;
-            color: var(--text-muted);
-            font-size: 12px;
-        }
-        
-        /* 底部导航 */
-        .bottom-nav {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            background: var(--card-bg);
-            display: flex;
-            justify-content: space-around;
-            padding: 15px 0;
-            border-top: 1px solid var(--bg-color);
-        }
-        
-        .nav-item {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 5px;
-            cursor: pointer;
-            color: var(--text-muted);
-            transition: color 0.2s ease;
-        }
-        
-        .nav-item.active {
-            color: var(--primary-color);
-        }
-        
-        .nav-icon {
-            font-size: 24px;
-        }
-        
-        .nav-label {
-            font-size: 12px;
-        }
-        
-        /* Toast提示 */
-        .toast {
-            position: fixed;
-            bottom: 100px;
-            left: 50%;
-            transform: translateX(-50%) translateY(100px);
-            background: var(--card-bg);
-            color: var(--text-color);
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-size: 14px;
-            z-index: 10001;
-            opacity: 0;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        }
-        
-        .toast.show {
-            transform: translateX(-50%) translateY(0);
-            opacity: 1;
-        }
-        
-        /* 动画 */
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-        }
-        
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-5px); }
-            75% { transform: translateX(5px); }
-        }
-        
-        .animate-pulse {
-            animation: pulse 0.5s ease;
-        }
-        
-        .animate-shake {
-            animation: shake 0.3s ease;
-        }
-        
-        /* 响应式 */
-        @media (max-width: 480px) {
-            .stats-panel {
-                grid-template-columns: repeat(3, 1fr);
-                gap: 10px;
-            }
-            
-            .stat-card {
-                padding: 15px;
-            }
-            
-            .stat-value {
-                font-size: 22px;
-            }
-            
-            .cards-grid {
-                grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
-            }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>资料分析斩</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f5f5;color:#333;min-height:100vh}
+.header{background:linear-gradient(135deg,#FF6B35,#E55A25);color:#fff;padding:20px;text-align:center}
+.header h1{font-size:24px;font-weight:700}
+.header p{font-size:14px;opacity:0.9;margin-top:4px}
+.content{padding:20px;max-width:600px;margin:0 auto}
+.mod-title{font-size:16px;font-weight:600;margin:20px 0 12px;color:#666}
+.mod-title:first-child{margin-top:0}
+.card{background:#fff;border-radius:12px;padding:20px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;transition:transform 0.2s}
+.card:active{transform:scale(0.98)}
+.card h3{font-size:16px;margin-bottom:4px;color:#333}
+.card p{font-size:13px;color:#888}
+.card .badge{display:inline-block;background:#FF6B35;color:#fff;padding:2px 8px;border-radius:10px;font-size:12px;margin-left:8px}
+.tip{background:#fff3e0;border-radius:12px;padding:16px;margin-top:20px;font-size:14px;color:#e65100}
+.tip strong{display:block;margin-bottom:4px}
+</style>
 </head>
 <body>
-    <!-- 启动画面 -->
-    <div class="splash-screen" id="splashScreen">
-        <div class="splash-logo">资料分析斩</div>
-        <div class="splash-loading">
-            <div class="splash-loading-bar" id="loadingBar"></div>
-        </div>
-        <div class="splash-status" id="splashStatus">正在初始化...</div>
-    </div>
-    
-    <!-- 离线提示 -->
-    <div class="offline-banner" id="offlineBanner">
-        离线模式 - 部分功能可能不可用
-    </div>
-    
-    <!-- 更新弹窗 -->
-    <div class="update-modal" id="updateModal">
-        <div class="update-dialog">
-            <div class="update-icon">↑</div>
-            <div class="update-title">发现新版本</div>
-            <div class="update-version" id="updateVersion">v1.0.0 → v1.0.1</div>
-            <div class="update-log" id="updateLog">
-                更新内容加载中...
-            </div>
-            <div class="update-buttons" id="updateButtons">
-                <button class="update-btn secondary" id="laterBtn">稍后提醒</button>
-                <button class="update-btn primary" id="updateBtn">立即更新</button>
-            </div>
-            <div class="force-update-notice" id="forceNotice" style="display: none;">
-                此版本需要强制更新
-            </div>
-        </div>
-    </div>
-    
-    <!-- 主界面 -->
-    <div class="container" id="mainContainer">
-        <div class="header">
-            <h1 class="app-title">资料分析斩</h1>
-            <p class="app-subtitle">掌握资料分析核心技能</p>
-        </div>
-        
-        <div class="stats-panel">
-            <div class="stat-card">
-                <div class="stat-value" id="totalCards">55</div>
-                <div class="stat-label">总卡片</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value" id="masteredCards">0</div>
-                <div class="stat-label">已掌握</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value" id="todayReviews">0</div>
-                <div class="stat-label">今日复习</div>
-            </div>
-        </div>
-        
-        <div class="progress-section">
-            <div class="progress-header">
-                <span>学习进度</span>
-                <span id="progressPercent">0%</span>
-            </div>
-            <div class="progress-bar">
-                <div class="progress-fill" id="progressFill" style="width: 0%"></div>
-            </div>
-        </div>
-        
-        <div class="cards-section">
-            <div class="section-title">
-                <span>卡片选择</span>
-                <span style="color: var(--text-muted); font-size: 14px; font-weight: normal;">点击卡片开始学习</span>
-            </div>
-            <div class="cards-grid" id="cardsGrid"></div>
-        </div>
-        
-        <div class="progress-section">
-            <div class="section-title">快速开始</div>
-            <div style="display: flex; gap: 10px; margin-top: 10px;">
-                <button class="study-btn good" onclick="startStudySession('due')" style="flex: 1;">复习到期卡片</button>
-                <button class="study-btn easy" onclick="startStudySession('new')" style="flex: 1;">学习新卡片</button>
-            </div>
-        </div>
-    </div>
-    
-    <!-- 学习界面 -->
-    <div class="study-screen" id="studyScreen">
-        <div class="study-header">
-            <button class="study-close" onclick="closeStudyScreen()">×</button>
-            <div class="study-progress">
-                <span id="studyProgress">1 / 10</span>
-            </div>
-            <div style="width: 30px;"></div>
-        </div>
-        <div class="study-card-container">
-            <div class="study-card" id="studyCard" onclick="flipCard()">
-                <div class="card-front">
-                    <span class="card-number" id="cardNumber">#1</span>
-                    <div class="card-category" id="cardCategory">基础公式</div>
-                    <div class="card-title" id="cardTitle">增长率</div>
-                    <div class="card-content" id="cardQuestion">
-                        点击卡片查看答案
-                    </div>
-                </div>
-                <div class="card-back">
-                    <span class="card-number" id="cardNumberBack">#1</span>
-                    <div class="card-category" id="cardCategoryBack">基础公式</div>
-                    <div class="card-title" id="cardTitleBack">增长率</div>
-                    <div class="card-content" id="cardAnswer">
-                        答案内容
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="study-buttons" id="studyButtons" style="display: none;">
-            <button class="study-btn again" onclick="rateCard(1)">重来</button>
-            <button class="study-btn hard" onclick="rateCard(2)">困难</button>
-            <button class="study-btn good" onclick="rateCard(3)">良好</button>
-            <button class="study-btn easy" onclick="rateCard(4)">简单</button>
-        </div>
-    </div>
-    
-    <!-- 设置页面 -->
-    <div class="settings-screen" id="settingsScreen">
-        <div class="settings-header">
-            <button class="settings-back" onclick="closeSettings()">←</button>
-            <span class="settings-title">设置</span>
-        </div>
-        <div class="settings-content">
-            <div class="settings-group">
-                <div class="settings-group-title">学习设置</div>
-                <div class="settings-item">
-                    <span class="settings-item-label">音效</span>
-                    <div class="settings-toggle active" id="soundToggle" onclick="toggleSound()"></div>
-                </div>
-                <div class="settings-item">
-                    <span class="settings-item-label">每日新卡片上限</span>
-                    <span class="settings-item-value" id="dailyLimitValue">20张</span>
-                </div>
-            </div>
-            
-            <div class="settings-group">
-                <div class="settings-group-title">数据管理</div>
-                <div class="settings-item" onclick="exportData()" style="cursor: pointer;">
-                    <span class="settings-item-label">导出学习数据</span>
-                    <span class="settings-item-value">→</span>
-                </div>
-                <div class="settings-item" onclick="importData()" style="cursor: pointer;">
-                    <span class="settings-item-label">导入学习数据</span>
-                    <span class="settings-item-value">→</span>
-                </div>
-                <div class="settings-item" onclick="resetProgress()" style="cursor: pointer;">
-                    <span class="settings-item-label">重置学习进度</span>
-                    <span class="settings-item-value" style="color: var(--danger-color);">重置</span>
-                </div>
-            </div>
-            
-            <div class="settings-group">
-                <div class="settings-group-title">关于</div>
-                <div class="settings-item">
-                    <span class="settings-item-label">当前版本</span>
-                    <span class="settings-item-value" id="currentVersion">v1.0.0</span>
-                </div>
-                <div class="settings-item">
-                    <span class="settings-item-label">检查更新</span>
-                    <button class="check-update-btn" id="checkUpdateBtn" onclick="checkForUpdate()">检查更新</button>
-                </div>
-                <div class="settings-item">
-                    <span class="settings-item-label">更新日期</span>
-                    <span class="settings-item-value" id="updateDate">2024-05-09</span>
-                </div>
-            </div>
-            
-            <div class="version-info">
-                资料分析斩 v1.0.0<br>
-                数据自动保存到本地
-            </div>
-        </div>
-    </div>
-    
-    <!-- 底部导航 -->
-    <div class="bottom-nav">
-        <div class="nav-item active" onclick="showMain()">
-            <span class="nav-icon">🏠</span>
-            <span class="nav-label">首页</span>
-        </div>
-        <div class="nav-item" onclick="showStats()">
-            <span class="nav-icon">📊</span>
-            <span class="nav-label">统计</span>
-        </div>
-        <div class="nav-item" onclick="showSettings()">
-            <span class="nav-icon">⚙️</span>
-            <span class="nav-label">设置</span>
-        </div>
-    </div>
-    
-    <!-- Toast -->
-    <div class="toast" id="toast"></div>
-    
-    <!-- 隐藏的文件输入 -->
-    <input type="file" id="importInput" accept=".json" style="display: none;" onchange="handleImport(event)">
+<div class="header">
+  <h1>📚 资料分析斩</h1>
+  <p>百词斩式记忆学习</p>
+</div>
+<div class="content">
+  <div class="tip">
+    <strong>💡 使用提示</strong>
+    点击下方模块开始学习。每张卡片先看例题，再做练习。答错的题会自动复习。
+  </div>
+  <div class="mod-title">📖 学习模块</div>
+  <div class="card" onclick="startModule(0)">
+    <h3>🔢 百化分速查 <span class="badge">20张</span></h3>
+    <p>50%=1/2、33.3%=1/3... 最常用的分数转换</p>
+  </div>
+  <div class="card" onclick="startModule(1)">
+    <h3>📝 核心公式 <span class="badge">15张</span></h3>
+    <p>基期量、增长率、间隔增长率... 公式推导演示</p>
+  </div>
+  <div class="card" onclick="startModule(2)">
+    <h3>⚡ 速算技巧 <span class="badge">10张</span></h3>
+    <p>截位直除、分数比较、化乘为加... 快速计算方法</p>
+  </div>
+  <div class="card" onclick="startModule(3)">
+    <h3>💡 易错辨析 <span class="badge">10张</span></h3>
+    <p>百分数vs百分点、增幅vs降幅... 常见陷阱识别</p>
+  </div>
+</div>
+<script>
+const STORAGE_KEY='ziliaozhan_data_v3';
 
-    <script>
-        // ==================== 配置 ====================
-        const APP_VERSION = '1.0.0';
-        const APP_UPDATE_DATE = '2024-05-09';
-        // 请将此URL替换为您自己的配置文件URL
-        const CONFIG_URL = 'https://api.npoint.io/your-config-id-here';
-        
-        // ==================== 卡片数据 ====================
-        const CARDS_DATA = [
-            {
-                id: 1,
-                category: "增长率",
-                title: "基本增长率公式",
-                question: "如何计算增长率？",
-                answer: `<div class="card-formula">增长率 = (现期量 - 基期量) / 基期量 × 100%</div>
-                <div class="card-formula">增长率 = 增长量 / 基期量 × 100%</div>
-                <div class="card-example">
-                    <div class="card-example-title">示例</div>
-                    2023年GDP为120万亿元，2022年为110万亿元。<br>
-                    增长率 = (120-110)/110 = 9.09%
-                </div>`,
-                tip: "注意区分增长率和增长量，增长率是比例，增长量是绝对值"
-            },
-            {
-                id: 2,
-                category: "增长率",
-                title: "年均增长率",
-                question: "如何计算年均增长率？",
-                answer: `<div class="card-formula">年均增长率 = (末期值/初期值)^(1/n) - 1</div>
-                <div class="card-example">
-                    <div class="card-example-title">示例</div>
-                    2018年产值100亿，2023年产值161亿。<br>
-                    年均增长率 = (161/100)^(1/5) - 1 = 10%
-                </div>`,
-                tip: "n为年份差，如2018到2023是5年"
-            },
-            {
-                id: 3,
-                category: "增长率",
-                title: "混合增长率",
-                question: "如何计算混合增长率？",
-                answer: `<div class="card-formula">整体增长率介于部分增长率之间</div>
-                <div class="card-formula">r = (A×r₁ + B×r₂)/(A+B)</div>
-                <div class="card-example">
-                    <div class="card-example-title">示例</div>
-                    进口增长10%，出口增长20%，进口额:出口额=3:2<br>
-                    总体增长率在10%-20%之间，偏向进口(10%)
-                </div>`,
-                tip: "利用十字交叉法快速求解"
-            },
-            {
-                id: 4,
-                category: "增长率",
-                title: "间隔增长率",
-                question: "如何计算间隔增长率？",
-                answer: `<div class="card-formula">r间隔 = r₁ + r₂ + r₁×r₂</div>
-                <div class="card-example">
-                    <div class="card-example-title">示例</div>
-                    2022年比2021年增长10%，2023年比2022年增长20%<br>
-                    2023年比2021年增长：10%+20%+10%×20%=32%
-                </div>`,
-                tip: "当r₁和r₂较小时，r₁×r₂可忽略"
-            },
-            {
-                id: 5,
-                category: "增长量",
-                title: "增长量计算",
-                question: "如何计算增长量？",
-                answer: `<div class="card-formula">增长量 = 现期量 - 基期量</div>
-                <div class="card-formula">增长量 = 现期量 × 增长率/(1+增长率)</div>
-                <div class="card-example">
-                    <div class="card-example-title">示例</div>
-                    现期量110，增长率10%<br>
-                    增长量 = 110×10%/(1+10%) = 10
-                </div>`,
-                tip: "增长率/(1+增长率)可以记忆常用值"
-            },
-            {
-                id: 6,
-                category: "增长量",
-                title: "年均增长量",
-                question: "如何计算年均增长量？",
-                answer: `<div class="card-formula">年均增长量 = (末期值 - 初期值) / 年份数</div>
-                <div class="card-example">
-                    <div class="card-example-title">示例</div>
-                    2018年产值100亿，2023年产值161亿<br>
-                    年均增长量 = (161-100)/5 = 12.2亿
-                </div>`,
-                tip: "注意年份数的计算，2018到2023是5年"
-            },
-            {
-                id: 7,
-                category: "比重",
-                title: "基本比重公式",
-                question: "如何计算比重？",
-                answer: `<div class="card-formula">比重 = 部分 / 整体 × 100%</div>
-                <div class="card-formula">部分 = 整体 × 比重</div>
-                <div class="card-example">
-                    <div class="card-example-title">示例</div>
-                    总产值1000亿，第一产业200亿<br>
-                    第一产业比重 = 200/1000 = 20%
-                </div>`,
-                tip: "比重一般用百分数表示"
-            },
-            {
-                id: 8,
-                category: "比重",
-                title: "比重变化",
-                question: "如何计算比重变化？",
-                answer: `<div class="card-formula">比重变化 = 现期比重 - 基期比重</div>
-                <div class="card-formula">比重变化百分点 = (部分增长率-整体增长率)/(1+部分增长率)×基期比重</div>
-                <div class="card-example">
-                    <div class="card-example-title">示例</div>
-                    部分增长15%，整体增长10%，基期比重40%<br>
-                    比重上升约：(15%-10%)/(1+15%)×40%≈1.74个百分点
-                </div>`,
-                tip: "比重变化用百分点表示，不是百分比"
-            },
-            {
-                id: 9,
-                category: "比重",
-                title: "比重差速算",
-                question: "如何快速判断比重变化方向？",
-                answer: `<div class="card-formula">部分增长率 > 整体增长率 → 比重上升</div>
-                <div class="card-formula">部分增长率 < 整体增长率 → 比重下降</div>
-                <div class="card-formula">部分增长率 = 整体增长率 → 比重不变</div>`,
-                tip: "先判断方向，再计算具体数值"
-            },
-            {
-                id: 10,
-                category: "平均数",
-                title: "平均数计算",
-                question: "如何计算平均数？",
-                answer: `<div class="card-formula">平均数 = 总量 / 份数</div>
-                <div class="card-example">
-                    <div class="card-example-title">示例</div>
-                    总产量1000吨，面积50亩<br>
-                    平均亩产 = 1000/50 = 20吨/亩
-                </div>`,
-                tip: "注意单位的统一"
-            },
-            {
-                id: 11,
-                category: "平均数",
-                title: "平均数增长率",
-                question: "如何计算平均数增长率？",
-                answer: `<div class="card-formula">平均数增长率 = (总量增长率 - 份数增长率)/(1 + 份数增长率)</div>
-                <div class="card-example">
-                    <div class="card-example-title">示例</div>
-                    总产值增长20%，人数增长10%<br>
-                    人均产值增长率 = (20%-10%)/(1+10%)≈9.1%
-                </div>`,
-                tip: "可以理解为"单位量"的增长率"
-            },
-            {
-                id: 12,
-                category: "平均数",
-                title: "平均数增长量",
-                question: "如何计算平均数增长量？",
-                answer: `<div class="card-formula">平均数增长量 = 现期平均数 - 基期平均数</div>
-                <div class="card-formula">= 现期总量/现期份数 - 基期总量/基期份数</div>`,
-                tip: "注意区分增长率和增长量"
-            },
-            {
-                id: 13,
-                category: "倍数",
-                title: "倍数计算",
-                question: "如何计算倍数？",
-                answer: `<div class="card-formula">A是B的几倍 = A/B</div>
-                <div class="card-formula">A比B多几倍 = A/B - 1</div>
-                <div class="card-example">
-                    <div class="card-example-title">示例</div>
-                    A=100，B=25<br>
-                    A是B的4倍，A比B多3倍
-                </div>`,
-                tip: "多几倍 = 是几倍 - 1"
-            },
-            {
-                id: 14,
-                category: "倍数",
-                title: "翻番计算",
-                question: "如何计算翻番？",
-                answer: `<div class="card-formula">翻n番 = 原值 × 2^n</div>
-                <div class="card-example">
-                    <div class="card-example-title">示例</div>
-                    原值100，翻一番后为200<br>
-                    翻两番后为400，翻三番后为800
-                </div>`,
-                tip: "翻一番=变为2倍，翻两番=变为4倍"
-            },
-            {
-                id: 15,
-                category: "倍数",
-                title: "倍数与增长率关系",
-                question: "倍数与增长率如何转换？",
-                answer: `<div class="card-formula">增长率 = (是几倍 - 1) × 100%</div>
-                <div class="card-formula">是几倍 = 1 + 增长率</div>
-                <div class="card-example">
-                    <div class="card-example-title">示例</div>
-                    A是B的1.5倍 → A比B增长50%<br>
-                    A比B增长30% → A是B的1.3倍
-                </div>`,
-                tip: "是几倍 = 1 + 增长率(小数形式)"
-            },
-            {
-                id: 16,
-                category: "速算技巧",
-                title: "特征数字法",
-                question: "如何使用特征数字法？",
-                answer: `<div class="card-formula">常用分数化百分数：</div>
-                1/2=50%, 1/3≈33.3%, 1/4=25%<br>
-                1/5=20%, 1/6≈16.7%, 1/7≈14.3%<br>
-                1/8=12.5%, 1/9≈11.1%, 1/10=10%<br>
-                1/11≈9.1%, 1/12≈8.3%`,
-                tip: "熟记常用分数，快速估算"
-            },
-            {
-                id: 17,
-                category: "速算技巧",
-                title: "首数法",
-                question: "如何使用首数法？",
-                answer: `<div class="card-formula">只计算商的首几位数字</div>
-                <div class="card-example">
-                    <div class="card-example-title">示例</div>
-                    12345/456，先算1234/456≈2.7<br>
-                    所以结果约为27.x
-                </div>`,
-                tip: "适用于选项首位不同的题目"
-            },
-            {
-                id: 18,
-                category: "速算技巧",
-                title: "尾数法",
-                question: "如何使用尾数法？",
-                answer: `<div class="card-formula">只计算最后几位数字</div>
-                <div class="card-example">
-                    <div class="card-example-title">示例</div>
-                    123+456+789，尾数3+6+9=18<br>
-                    尾数是8，选尾数为8的选项
-                </div>`,
-                tip: "适用于加减法且选项尾数不同"
-            },
-            {
-                id: 19,
-                category: "速算技巧",
-                title: "有效数字法",
-                question: "如何使用有效数字法？",
-                answer: `<div class="card-formula">保留有效数字进行估算</div>
-                <div class="card-example">
-                    <div class="card-example-title">示例</div>
-                    12345×67890<br>
-                    ≈1.23×6.79×10^8<br>
-                    ≈8.35×10^8
-                </div>`,
-                tip: "注意误差方向，乘法往小估"
-            },
-            {
-                id: 20,
-                category: "速算技巧",
-                title: "错位加减法",
-                question: "如何使用错位加减法？",
-                answer: `<div class="card-formula">利用数字规律简化计算</div>
-                <div class="card-example">
-                    <div class="card-example-title">示例</div>
-                    123×111 = 123×(100+10+1)<br>
-                    = 12300+1230+123 = 13653
-                </div>`,
-                tip: "适用于特殊数字的乘法"
-            },
-            {
-                id: 21,
-                category: "比重模型",
-                title: "基期比重",
-                question: "如何计算基期比重？",
-                answer: `<div class="card-formula">基期比重 = 现期比重 × (1+整体增长率)/(1+部分增长率)</div>
-                <div class="card-formula">= 现期部分/现期整体 × (1+整体r)/(1+部分r)</div>`,
-                tip: "注意分子分母的增长率不要搞反"
-            },
-            {
-                id: 22,
-                category: "比重模型",
-                title: "两期比重差",
-                question: "两期比重差如何计算？",
-                answer: `<div class="card-formula">比重差 = 现期比重 - 基期比重</div>
-                <div class="card-formula">≈ 基期比重 × (部分r - 整体r)/(1 + 部分r)</div>
-                <div class="card-tip">结果用百分点表示</div>`,
-                tip: "先判断方向，再估算数值"
-            },
-            {
-                id: 23,
-                category: "比重模型",
-                title: "比重-部分量",
-                question: "已知比重如何求部分量？",
-                answer: `<div class="card-formula">部分量 = 整体量 × 比重</div>
-                <div class="card-formula">基期部分 = 现期整体/(1+整体r) × 基期比重</div>`,
-                tip: "注意区分现期和基期"
-            },
-            {
-                id: 24,
-                category: "比重模型",
-                title: "比重-整体量",
-                question: "已知比重如何求整体量？",
-                answer: `<div class="card-formula">整体量 = 部分量 / 比重</div>
-                <div class="card-formula">基期整体 = 现期部分/(1+部分r) / 基期比重</div>`,
-                tip: "除以比重等于除以百分比"
-            },
-            {
-                id: 25,
-                category: "增长模型",
-                title: "基期量计算",
-                question: "如何计算基期量？",
-                answer: `<div class="card-formula">基期量 = 现期量 / (1 + 增长率)</div>
-                <div class="card-formula">基期量 = 现期量 - 增长量</div>
-                <div class="card-example">
-                    <div class="card-example-title">示例</div>
-                    现期110，增长10%<br>
-                    基期 = 110/(1+10%) = 100
-                </div>`,
-                tip: "增长率较小时可用现期×(1-r)近似"
-            },
-            {
-                id: 26,
-                category: "增长模型",
-                title: "现期量计算",
-                question: "如何计算现期量？",
-                answer: `<div class="card-formula">现期量 = 基期量 × (1 + 增长率)</div>
-                <div class="card-formula">现期量 = 基期量 + 增长量</div>
-                <div class="card-example">
-                    <div class="card-example-title">示例</div>
-                    基期100，增长10%<br>
-                    现期 = 100×(1+10%) = 110
-                </div>`,
-                tip: "连续增长时可用间隔增长率公式"
-            },
-            {
-                id: 27,
-                category: "增长模型",
-                title: "追及问题",
-                question: "如何计算追及时间？",
-                answer: `<div class="card-formula">追及时间 = 差值 / (大增长率 - 小增长率)</div>
-                <div class="card-example">
-                    <div class="card-example-title">示例</div>
-                    A现期100，增长率20%<br>
-                    B现期150，增长率10%<br>
-                    追及时间 ≈ 50/(20%-10%) = 500期
-                </div>`,
-                tip: "适用于比较简单的追及问题"
-            },
-            {
-                id: 28,
-                category: "平均模型",
-                title: "加权平均数",
-                question: "如何计算加权平均数？",
-                answer: `<div class="card-formula">加权平均 = Σ(数值×权重) / Σ权重</div>
-                <div class="card-example">
-                    <div class="card-example-title">示例</div>
-                    A班30人平均80分，B班20人平均90分<br>
-                    总平均 = (30×80+20×90)/50 = 84分
-                </div>`,
-                tip: "权重可以是人数、数量等"
-            },
-            {
-                id: 29,
-                category: "平均模型",
-                title: "调和平均数",
-                question: "何时使用调和平均数？",
-                answer: `<div class="card-formula">调和平均 = n / Σ(1/数值)</div>
-                <div class="card-formula">平均速度 = 总路程 / 总时间</div>
-                <div class="card-example">
-                    <div class="card-example-title">示例</div>
-                    上山速度3km/h，下山速度6km/h<br>
-                    平均速度 = 2×3×6/(3+6) = 4km/h
-                </div>`,
-                tip: "往返问题常用调和平均"
-            },
-            {
-                id: 30,
-                category: "比例模型",
-                title: "比例计算",
-                question: "如何处理比例问题？",
-                answer: `<div class="card-formula">A:B = a:b → A = ka, B = kb</div>
-                <div class="card-formula">A:B:C = a:b:c → A=ka, B=kb, C=kc</div>
-                <div class="card-example">
-                    <div class="card-example-title">示例</div>
-                    男:女 = 3:2，总100人<br>
-                    男 = 100×3/5 = 60人
-                </div>`,
-                tip: "比例问题设份数求解"
-            },
-            {
-                id: 31,
-                category: "比例模型",
-                title: "正比例关系",
-                question: "如何识别正比例关系？",
-                answer: `<div class="card-formula">y = kx (k为常数)</div>
-                <div class="card-formula">y₁/y₂ = x₁/x₂</div>
-                <div class="card-example">
-                    <div class="card-example-title">示例</div>
-                    速度一定，路程与时间成正比<br>
-                    时间翻倍，路程也翻倍
-                </div>`,
-                tip: "商一定，成正比"
-            },
-            {
-                id: 32,
-                category: "比例模型",
-                title: "反比例关系",
-                question: "如何识别反比例关系？",
-                answer: `<div class="card-formula">y = k/x (k为常数)</div>
-                <div class="card-formula">y₁/y₂ = x₂/x₁</div>
-                <div class="card-example">
-                    <div class="card-example-title">示例</div>
-                    路程一定，速度与时间成反比<br>
-                    速度翻倍，时间减半
-                </div>`,
-                tip: "积一定，成反比"
-            },
-            {
-                id: 33,
-                category: "特殊增长率",
-                title: "同比与环比",
-                question: "同比和环比有什么区别？",
-                answer: `<div class="card-formula">同比增长率 = 与去年同期相比</div>
-                <div class="card-formula">环比增长率 = 与上一期相比</div>
-                <div class="card-example">
-                    <div class="card-example-title">示例</div>
-                    2023年5月：<br>
-                    同比：与2022年5月比较<br>
-                    环比：与2023年4月比较
-                </div>`,
-                tip: "同比看年度变化，环比看短期趋势"
-            },
-            {
-                id: 34,
-                category: "特殊增长率",
-                title: "定基增长率",
-                question: "什么是定基增长率？",
-                answer: `<div class="card-formula">定基增长率 = (现期量 - 固定基期量) / 固定基期量</div>
-                <div class="card-example">
-                    <div class="card-example-title">示例</div>
-                    以2020年为基期<br>
-                    2023年定基增长率 = (2023年值-2020年值)/2020年值
-                </div>`,
-                tip: "定基增长率的基期是固定的"
-            },
-            {
-                id: 35,
-                category: "特殊增长率",
-                title: "拉动增长",
-                question: "什么是拉动增长？",
-                answer: `<div class="card-formula">拉动增长 = 部分增长量 / 整体基期量 × 100%</div>
-                <div class="card-example">
-                    <div class="card-example-title">示例</div>
-                    GDP增长100亿，其中第一产业增长20亿<br>
-                    第一产业拉动GDP增长 = 20/基期GDP
-                </div>`,
-                tip: "拉动增长用百分数表示"
-            },
-            {
-                id: 36,
-                category: "特殊增长率",
-                title: "贡献率",
-                question: "什么是贡献率？",
-                answer: `<div class="card-formula">贡献率 = 部分增长量 / 整体增长量 × 100%</div>
-                <div class="card-example">
-                    <div class="card-example-title">示例</div>
-                    GDP增长100亿，其中第一产业增长20亿<br>
-                    第一产业贡献率 = 20/100 = 20%
-                </div>`,
-                tip: "贡献率反映部分对整体的贡献程度"
-            },
-            {
-                id: 37,
-                category: "综合应用",
-                title: "综合分析题技巧",
-                question: "如何快速解答综合分析题？",
-                answer: `<div class="card-tip">解题策略：</div>
-                1. 先看选项，找容易判断的<br>
-                2. 从简单到复杂逐一验证<br>
-                3. 注意"正确"还是"错误"<br>
-                4. 时间不够时，选最可能的`,
-                tip: "综合分析题往往有一个明显错误选项"
-            },
-            {
-                id: 38,
-                category: "综合应用",
-                title: "文字材料阅读",
-                question: "如何快速阅读文字材料？",
-                answer: `<div class="card-tip">阅读技巧：</div>
-                1. 先看时间和主体<br>
-                2. 标注关键数据<br>
-                3. 注意"其中"、"占比"等词<br>
-                4. 理清数据层级关系`,
-                tip: "边读边标注，提高效率"
-            },
-            {
-                id: 39,
-                category: "综合应用",
-                title: "表格材料阅读",
-                question: "如何快速阅读表格材料？",
-                answer: `<div class="card-tip">阅读技巧：</div>
-                1. 先看标题和单位<br>
-                2. 理解行列含义<br>
-                3. 注意合计行/列<br>
-                4. 找到所需数据位置`,
-                tip: "表格数据精确，适合计算"
-            },
-            {
-                id: 40,
-                category: "综合应用",
-                title: "图形材料阅读",
-                question: "如何快速阅读图形材料？",
-                answer: `<div class="card-tip">阅读技巧：</div>
-                1. 先看标题和图例<br>
-                2. 理解坐标轴含义<br>
-                3. 注意单位和刻度<br>
-                4. 关注趋势和极值`,
-                tip: "图形直观，适合判断趋势"
-            },
-            {
-                id: 41,
-                category: "易错点",
-                title: "时间陷阱",
-                question: "常见的时间陷阱有哪些？",
-                answer: `<div class="card-tip">常见陷阱：</div>
-                1. 时间点不一致<br>
-                2. 时间段计算错误<br>
-                3. "十二五"等规划期<br>
-                4. 同比环比混淆`,
-                tip: "审题时务必注意时间"
-            },
-            {
-                id: 42,
-                category: "易错点",
-                title: "单位陷阱",
-                question: "常见的单位陷阱有哪些？",
-                answer: `<div class="card-tip">常见陷阱：</div>
-                1. 亿元与万亿元<br>
-                2. 百分比与百分点<br>
-                3. 美元与人民币<br>
-                4. 吨与万吨`,
-                tip: "计算前先统一单位"
-            },
-            {
-                id: 43,
-                category: "易错点",
-                title: "概念陷阱",
-                question: "常见的概念陷阱有哪些？",
-                answer: `<div class="card-tip">常见陷阱：</div>
-                1. 增长率与增长量<br>
-                2. 是几倍与多几倍<br>
-                3. 比重与占比<br>
-                4. 顺差与逆差`,
-                tip: "理解概念本质，避免混淆"
-            },
-            {
-                id: 44,
-                category: "易错点",
-                title: "范围陷阱",
-                question: "常见的范围陷阱有哪些？",
-                answer: `<div class="card-tip">常见陷阱：</div>
-                1. 部分与整体<br>
-                2. 包含与不包含<br>
-                3. "以上"与"以下"<br>
-                4. 累计与当期`,
-                tip: "注意数据的统计范围"
-            },
-            {
-                id: 45,
-                category: "速算公式",
-                title: "常用速算公式1",
-                question: "增长率与倍数的关系？",
-                answer: `<div class="card-formula">增长率 = 倍数 - 1</div>
-                <div class="card-formula">倍数 = 增长率 + 1</div>
-                <div class="card-example">
-                    <div class="card-example-title">示例</div>
-                    增长25% → 是原来的1.25倍<br>
-                    是原来的1.5倍 → 增长50%
-                </div>`,
-                tip: "倍数包含原来的1份"
-            },
-            {
-                id: 46,
-                category: "速算公式",
-                title: "常用速算公式2",
-                question: "如何快速计算1/(1+r)？",
-                answer: `<div class="card-formula">1/(1+r) ≈ 1-r (当r较小时)</div>
-                <div class="card-example">
-                    <div class="card-example-title">示例</div>
-                    1/(1+5%) ≈ 1-5% = 0.95<br>
-                    精确值：0.9524，误差很小
-                </div>`,
-                tip: "r<10%时误差可接受"
-            },
-            {
-                id: 47,
-                category: "速算公式",
-                title: "常用速算公式3",
-                question: "如何快速计算增长量？",
-                answer: `<div class="card-formula">增长量 ≈ 现期量 × r/(1+r)</div>
-                <div class="card-formula">r/(1+r) 常用值：</div>
-                1/11≈9.1%, 1/9≈11.1%<br>
-                1/6≈16.7%, 1/4=25%`,
-                tip: "熟记r/(1+r)的常用值"
-            },
-            {
-                id: 48,
-                category: "速算公式",
-                title: "常用速算公式4",
-                question: "如何快速估算比重变化？",
-                answer: `<div class="card-formula">比重变化 ≈ 基期比重 × (部分r - 整体r)</div>
-                <div class="card-example">
-                    <div class="card-example-title">示例</div>
-                    基期比重40%，部分r=15%，整体r=10%<br>
-                    比重变化 ≈ 40%×5% = 2个百分点
-                </div>`,
-                tip: "这是近似公式，精确计算需除(1+部分r)"
-            },
-            {
-                id: 49,
-                category: "速算公式",
-                title: "常用速算公式5",
-                question: "如何快速计算年均增长率？",
-                answer: `<div class="card-formula">年均r ≈ (末期/初期 - 1)/n (粗略)</div>
-                <div class="card-formula">精确：年均r = (末期/初期)^(1/n) - 1</div>`,
-                tip: "粗略估算用第一个公式"
-            },
-            {
-                id: 50,
-                category: "实战技巧",
-                title: "估算原则",
-                question: "估算时要注意什么？",
-                answer: `<div class="card-tip">估算原则：</div>
-                1. 放大与缩小要一致<br>
-                2. 乘法往小估，除法往大估<br>
-                3. 注意误差方向<br>
-                4. 选项差距大时可大胆估算`,
-                tip: "估算要保证方向正确"
-            },
-            {
-                id: 51,
-                category: "实战技巧",
-                title: "选项分析",
-                question: "如何利用选项？",
-                answer: `<div class="card-tip">选项分析技巧：</div>
-                1. 选项差距大→大胆估算<br>
-                2. 选项首位不同→首数法<br>
-                3. 选项尾数不同→尾数法<br>
-                4. 选项有整数→优先验证`,
-                tip: "选项是最好的提示"
-            },
-            {
-                id: 52,
-                category: "实战技巧",
-                title: "计算顺序",
-                question: "如何安排计算顺序？",
-                answer: `<div class="card-tip">计算顺序建议：</div>
-                1. 先判断是否需要计算<br>
-                2. 能估算的不精确算<br>
-                3. 复杂计算放最后<br>
-                4. 利用中间结果`,
-                tip: "不是每题都需要精确计算"
-            },
-            {
-                id: 53,
-                category: "实战技巧",
-                title: "时间分配",
-                question: "如何合理分配时间？",
-                answer: `<div class="card-tip">时间分配建议：</div>
-                1. 每篇材料5-7分钟<br>
-                2. 简单题快速作答<br>
-                3. 难题适当放弃<br>
-                4. 综合分析题最后做`,
-                tip: "资料分析重在速度和准确率平衡"
-            },
-            {
-                id: 54,
-                category: "高频考点",
-                title: "高频考点1",
-                question: "资料分析最常考什么？",
-                answer: `<div class="card-tip">高频考点：</div>
-                1. 增长率计算与比较<br>
-                2. 增长量计算<br>
-                3. 比重计算与变化<br>
-                4. 平均数与倍数`,
-                tip: "掌握这四类，覆盖80%题目"
-            },
-            {
-                id: 55,
-                category: "高频考点",
-                title: "高频考点2",
-                question: "哪些公式必须背？",
-                answer: `<div class="card-tip">必背公式：</div>
-                1. 增长率 = 增长量/基期<br>
-                2. 基期量 = 现期/(1+r)<br>
-                3. 比重 = 部分/整体<br>
-                4. 平均数 = 总量/份数`,
-                tip: "基础公式是解题根本"
-            }
-        ];
-        
-        // ==================== 全局变量 ====================
-        let studyData = {
-            cards: {},
-            stats: {
-                totalStudy: 0,
-                totalReviews: 0,
-                streak: 0,
-                lastStudyDate: null
-            },
-            settings: {
-                soundEnabled: true,
-                dailyLimit: 20
-            }
-        };
-        
-        let currentStudySession = {
-            cards: [],
-            currentIndex: 0,
-            type: 'new'
-        };
-        
-        let isFlipped = false;
-        let cachedConfig = null;
-        
-        // ==================== 音效系统 ====================
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        let audioCtx = null;
-        
-        function initAudio() {
-            if (!audioCtx) {
-                audioCtx = new AudioContext();
-            }
-        }
-        
-        function playSound(type) {
-            if (!studyData.settings.soundEnabled) return;
-            
-            initAudio();
-            
-            const oscillator = audioCtx.createOscillator();
-            const gainNode = audioCtx.createGain();
-            
-            oscillator.connect(gainNode);
-            gainNode.connect(audioCtx.destination);
-            
-            switch(type) {
-                case 'flip':
-                    oscillator.frequency.value = 800;
-                    oscillator.type = 'sine';
-                    gainNode.gain.value = 0.1;
-                    break;
-                case 'correct':
-                    oscillator.frequency.value = 1200;
-                    oscillator.type = 'sine';
-                    gainNode.gain.value = 0.1;
-                    break;
-                case 'wrong':
-                    oscillator.frequency.value = 300;
-                    oscillator.type = 'sine';
-                    gainNode.gain.value = 0.1;
-                    break;
-                case 'complete':
-                    oscillator.frequency.value = 1000;
-                    oscillator.type = 'sine';
-                    gainNode.gain.value = 0.15;
-                    break;
-            }
-            
-            oscillator.start();
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
-            oscillator.stop(audioCtx.currentTime + 0.2);
-        }
-        
-        // ==================== 数据管理 ====================
-        function loadData() {
-            const saved = localStorage.getItem('ziliaoFenxiZhan_data');
-            if (saved) {
-                try {
-                    const parsed = JSON.parse(saved);
-                    studyData = migrateData(parsed);
-                } catch(e) {
-                    console.error('数据加载失败', e);
-                }
-            }
-        }
-        
-        function migrateData(oldData) {
-            // 数据迁移函数，确保旧版本数据兼容新版本
-            const newData = {
-                cards: oldData.cards || {},
-                stats: {
-                    totalStudy: oldData.stats?.totalStudy || 0,
-                    totalReviews: oldData.stats?.totalReviews || 0,
-                    streak: oldData.stats?.streak || 0,
-                    lastStudyDate: oldData.stats?.lastStudyDate || null
-                },
-                settings: {
-                    soundEnabled: oldData.settings?.soundEnabled !== false,
-                    dailyLimit: oldData.settings?.dailyLimit || 20
-                }
-            };
-            return newData;
-        }
-        
-        function saveData() {
-            localStorage.setItem('ziliaoFenxiZhan_data', JSON.stringify(studyData));
-        }
-        
-        function exportData() {
-            const dataStr = JSON.stringify(studyData, null, 2);
-            const blob = new Blob([dataStr], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `资料分析斩_数据_${new Date().toISOString().split('T')[0]}.json`;
-            a.click();
-            URL.revokeObjectURL(url);
-            showToast('数据已导出');
-        }
-        
-        function importData() {
-            document.getElementById('importInput').click();
-        }
-        
-        function handleImport(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const imported = JSON.parse(e.target.result);
-                    studyData = migrateData(imported);
-                    saveData();
-                    updateUI();
-                    showToast('数据导入成功');
-                } catch(err) {
-                    showToast('数据格式错误');
-                }
-            };
-            reader.readAsText(file);
-            event.target.value = '';
-        }
-        
-        function resetProgress() {
-            if (confirm('确定要重置所有学习进度吗？此操作不可恢复。')) {
-                studyData.cards = {};
-                studyData.stats = {
-                    totalStudy: 0,
-                    totalReviews: 0,
-                    streak: 0,
-                    lastStudyDate: null
-                };
-                saveData();
-                updateUI();
-                showToast('进度已重置');
-            }
-        }
-        
-        // ==================== 间隔重复系统 ====================
-        function getCardStatus(cardId) {
-            const cardData = studyData.cards[cardId];
-            if (!cardData) return 'new';
-            if (cardData.interval >= 21) return 'mastered';
-            return 'learning';
-        }
-        
-        function getNextReviewDate(cardId) {
-            const cardData = studyData.cards[cardId];
-            if (!cardData) return null;
-            return cardData.nextReview;
-        }
-        
-        function isCardDue(cardId) {
-            const nextReview = getNextReviewDate(cardId);
-            if (!nextReview) return false;
-            return new Date(nextReview) <= new Date();
-        }
-        
-        function getDueCards() {
-            return CARDS_DATA.filter(card => isCardDue(card.id)).map(card => card.id);
-        }
-        
-        function getNewCards() {
-            return CARDS_DATA.filter(card => !studyData.cards[card.id]).map(card => card.id);
-        }
-        
-        function calculateNextReview(cardId, rating) {
-            const cardData = studyData.cards[cardId] || {
-                interval: 0,
-                easeFactor: 2.5,
-                repetitions: 0
-            };
-            
-            let newInterval, newEaseFactor, newRepetitions;
-            
-            if (rating < 2) {
-                // 重来
-                newRepetitions = 0;
-                newInterval = 1;
-                newEaseFactor = Math.max(1.3, cardData.easeFactor - 0.2);
-            } else {
-                // 良好或简单
-                newRepetitions = cardData.repetitions + 1;
-                
-                if (newRepetitions === 1) {
-                    newInterval = rating === 4 ? 4 : (rating === 3 ? 3 : 2);
-                } else if (newRepetitions === 2) {
-                    newInterval = rating === 4 ? 10 : 6;
-                } else {
-                    newInterval = Math.round(cardData.interval * cardData.easeFactor);
-                }
-                
-                newEaseFactor = cardData.easeFactor + (0.1 - (5 - rating) * (0.08 + (5 - rating) * 0.02));
-                newEaseFactor = Math.max(1.3, newEaseFactor);
-            }
-            
-            const nextReview = new Date();
-            nextReview.setDate(nextReview.getDate() + newInterval);
-            
-            studyData.cards[cardId] = {
-                interval: newInterval,
-                easeFactor: newEaseFactor,
-                repetitions: newRepetitions,
-                nextReview: nextReview.toISOString(),
-                lastReview: new Date().toISOString()
-            };
-        }
-        
-        // ==================== UI更新 ====================
-        function updateUI() {
-            updateStats();
-            updateCardsGrid();
-            updateSettings();
-        }
-        
-        function updateStats() {
-            const mastered = Object.keys(studyData.cards).filter(id => getCardStatus(parseInt(id)) === 'mastered').length;
-            const todayReviews = getTodayReviewCount();
-            
-            document.getElementById('totalCards').textContent = CARDS_DATA.length;
-            document.getElementById('masteredCards').textContent = mastered;
-            document.getElementById('todayReviews').textContent = todayReviews;
-            
-            const progress = (mastered / CARDS_DATA.length) * 100;
-            document.getElementById('progressPercent').textContent = progress.toFixed(1) + '%';
-            document.getElementById('progressFill').style.width = progress + '%';
-        }
-        
-        function getTodayReviewCount() {
-            const today = new Date().toDateString();
-            let count = 0;
-            
-            Object.keys(studyData.cards).forEach(id => {
-                const card = studyData.cards[id];
-                if (card.lastReview && new Date(card.lastReview).toDateString() === today) {
-                    count++;
-                }
-            });
-            
-            return count;
-        }
-        
-        function updateCardsGrid() {
-            const grid = document.getElementById('cardsGrid');
-            grid.innerHTML = '';
-            
-            CARDS_DATA.forEach(card => {
-                const status = getCardStatus(card.id);
-                const item = document.createElement('div');
-                item.className = `card-item ${status}`;
-                item.innerHTML = `
-                    ${card.id}
-                    ${status !== 'new' ? '<span class="status-dot"></span>' : ''}
-                `;
-                item.onclick = () => startStudySession('single', card.id);
-                grid.appendChild(item);
-            });
-        }
-        
-        function updateSettings() {
-            document.getElementById('currentVersion').textContent = 'v' + APP_VERSION;
-            document.getElementById('updateDate').textContent = APP_UPDATE_DATE;
-            document.getElementById('soundToggle').classList.toggle('active', studyData.settings.soundEnabled);
-            document.getElementById('dailyLimitValue').textContent = studyData.settings.dailyLimit + '张';
-        }
-        
-        // ==================== 学习系统 ====================
-        function startStudySession(type, cardId = null) {
-            let cardIds = [];
-            
-            switch(type) {
-                case 'due':
-                    cardIds = getDueCards();
-                    if (cardIds.length === 0) {
-                        showToast('没有需要复习的卡片');
-                        return;
-                    }
-                    break;
-                case 'new':
-                    cardIds = getNewCards().slice(0, studyData.settings.dailyLimit);
-                    if (cardIds.length === 0) {
-                        showToast('已学完所有新卡片');
-                        return;
-                    }
-                    break;
-                case 'single':
-                    cardIds = [cardId];
-                    break;
-            }
-            
-            currentStudySession = {
-                cards: cardIds,
-                currentIndex: 0,
-                type: type
-            };
-            
-            document.getElementById('studyScreen').classList.add('active');
-            showCard();
-        }
-        
-        function showCard() {
-            const cardId = currentStudySession.cards[currentStudySession.currentIndex];
-            const card = CARDS_DATA.find(c => c.id === cardId);
-            
-            if (!card) {
-                closeStudyScreen();
-                return;
-            }
-            
-            isFlipped = false;
-            document.getElementById('studyCard').classList.remove('flipped');
-            document.getElementById('studyButtons').style.display = 'none';
-            
-            document.getElementById('cardNumber').textContent = '#' + card.id;
-            document.getElementById('cardNumberBack').textContent = '#' + card.id;
-            document.getElementById('cardCategory').textContent = card.category;
-            document.getElementById('cardCategoryBack').textContent = card.category;
-            document.getElementById('cardTitle').textContent = card.title;
-            document.getElementById('cardTitleBack').textContent = card.title;
-            document.getElementById('cardQuestion').textContent = card.question;
-            document.getElementById('cardAnswer').innerHTML = card.answer;
-            
-            document.getElementById('studyProgress').textContent = 
-                `${currentStudySession.currentIndex + 1} / ${currentStudySession.cards.length}`;
-        }
-        
-        function flipCard() {
-            const cardEl = document.getElementById('studyCard');
-            
-            if (!isFlipped) {
-                cardEl.classList.add('flipped');
-                document.getElementById('studyButtons').style.display = 'flex';
-                playSound('flip');
-            }
-            
-            isFlipped = true;
-        }
-        
-        function rateCard(rating) {
-            const cardId = currentStudySession.cards[currentStudySession.currentIndex];
-            calculateNextReview(cardId, rating);
-            
-            // 更新统计
-            studyData.stats.totalReviews++;
-            studyData.stats.lastStudyDate = new Date().toISOString();
-            
-            // 更新连续学习天数
-            updateStreak();
-            
-            saveData();
-            
-            if (rating >= 3) {
-                playSound('correct');
-            } else {
-                playSound('wrong');
-            }
-            
-            // 下一张卡片
-            currentStudySession.currentIndex++;
-            
-            if (currentStudySession.currentIndex >= currentStudySession.cards.length) {
-                playSound('complete');
-                showToast('学习完成！');
-                closeStudySession();
-            } else {
-                showCard();
-            }
-        }
-        
-        function updateStreak() {
-            const today = new Date().toDateString();
-            const lastStudy = studyData.stats.lastStudyDate ? new Date(studyData.stats.lastStudyDate).toDateString() : null;
-            
-            if (lastStudy === today) {
-                // 今天已经学过了
-            } else {
-                const yesterday = new Date();
-                yesterday.setDate(yesterday.getDate() - 1);
-                
-                if (lastStudy === yesterday.toDateString()) {
-                    studyData.stats.streak++;
-                } else if (lastStudy !== today) {
-                    studyData.stats.streak = 1;
-                }
-            }
-        }
-        
-        function closeStudySession() {
-            updateUI();
-            closeStudyScreen();
-        }
-        
-        function closeStudyScreen() {
-            document.getElementById('studyScreen').classList.remove('active');
-        }
-        
-        // ==================== 设置 ====================
-        function showSettings() {
-            document.getElementById('settingsScreen').classList.add('active');
-        }
-        
-        function closeSettings() {
-            document.getElementById('settingsScreen').classList.remove('active');
-        }
-        
-        function toggleSound() {
-            studyData.settings.soundEnabled = !studyData.settings.soundEnabled;
-            document.getElementById('soundToggle').classList.toggle('active', studyData.settings.soundEnabled);
-            saveData();
-            
-            if (studyData.settings.soundEnabled) {
-                playSound('flip');
-            }
-        }
-        
-        function showMain() {
-            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
-            document.querySelector('.nav-item').classList.add('active');
-            closeSettings();
-        }
-        
-        function showStats() {
-            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
-            document.querySelectorAll('.nav-item')[1].classList.add('active');
-            showToast('统计功能开发中...');
-        }
-        
-        // ==================== 版本更新系统 ====================
-        async function checkForUpdate(manual = false) {
-            const btn = document.getElementById('checkUpdateBtn');
-            btn.disabled = true;
-            btn.textContent = '检查中...';
-            
-            try {
-                // 添加超时机制，3秒超时
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 3000);
-                
-                const response = await fetch(CONFIG_URL, {
-                    method: 'GET',
-                    headers: {
-                        'Accept': 'application/json'
-                    },
-                    cache: 'no-cache',
-                    signal: controller.signal
-                });
-                clearTimeout(timeoutId);
-                
-                if (!response.ok) {
-                    throw new Error('网络请求失败');
-                }
-                
-                const config = await response.json();
-                cachedConfig = config;
-                
-                // 缓存配置
-                localStorage.setItem('ziliaoFenxiZhan_config', JSON.stringify(config));
-                
-                // 隐藏离线提示
-                document.getElementById('offlineBanner').classList.remove('show');
-                
-                // 比较版本
-                const hasUpdate = compareVersions(config.version, APP_VERSION) > 0;
-                
-                if (hasUpdate) {
-                    showUpdateModal(config);
-                } else if (manual) {
-                    showToast('已是最新版本');
-                }
-                
-                btn.textContent = '检查更新';
-                btn.disabled = false;
-                return config;
-                
-            } catch(error) {
-                console.error('检查更新失败:', error);
-                
-                // 显示离线提示
-                document.getElementById('offlineBanner').classList.add('show');
-                
-                // 尝试使用缓存配置
-                const cachedConfigStr = localStorage.getItem('ziliaoFenxiZhan_config');
-                if (cachedConfigStr) {
-                    const cached = JSON.parse(cachedConfigStr);
-                    if (manual) {
-                        showToast('离线模式：使用缓存数据');
-                    }
-                    return cached;
-                }
-                
-                if (manual) {
-                    showToast('网络连接失败');
-                }
-                
-                btn.textContent = '检查更新';
-                btn.disabled = false;
-                return null;
-            }
-        }
-        
-        function compareVersions(v1, v2) {
-            const parts1 = v1.split('.').map(Number);
-            const parts2 = v2.split('.').map(Number);
-            
-            for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
-                const p1 = parts1[i] || 0;
-                const p2 = parts2[i] || 0;
-                if (p1 > p2) return 1;
-                if (p1 < p2) return -1;
-            }
-            return 0;
-        }
-        
-        function showUpdateModal(config) {
-            document.getElementById('updateVersion').textContent = 
-                `v${APP_VERSION} → v${config.version}`;
-            document.getElementById('updateLog').textContent = config.updateLog || '暂无更新说明';
-            
-            const isForce = config.forceUpdate === true;
-            document.getElementById('laterBtn').style.display = isForce ? 'none' : 'block';
-            document.getElementById('forceNotice').style.display = isForce ? 'block' : 'none';
-            
-            document.getElementById('updateModal').classList.add('show');
-            
-            // 保存更新URL
-            window.updateUrl = config.appUrl;
-        }
-        
-        function hideUpdateModal() {
-            document.getElementById('updateModal').classList.remove('show');
-        }
-        
-        function doUpdate() {
-            if (window.updateUrl) {
-                // 在跳转前保存数据
-                saveData();
-                window.location.href = window.updateUrl;
-            }
-        }
-        
-        // ==================== Toast ====================
-        function showToast(message) {
-            const toast = document.getElementById('toast');
-            toast.textContent = message;
-            toast.classList.add('show');
-            
-            setTimeout(() => {
-                toast.classList.remove('show');
-            }, 2000);
-        }
-        
-        // ==================== 启动流程 ====================
-        async function initApp() {
-            const loadingBar = document.getElementById('loadingBar');
-            const splashStatus = document.getElementById('splashStatus');
-            
-            // 加载本地数据
-            splashStatus.textContent = '加载本地数据...';
-            loadingBar.style.width = '30%';
-            loadData();
-            
-            // 初始化UI
-            splashStatus.textContent = '初始化界面...';
-            loadingBar.style.width = '50%';
-            updateUI();
-            
-            // 检查更新
-            splashStatus.textContent = '检查更新...';
-            loadingBar.style.width = '70%';
-            
-            try {
-                await checkForUpdate(false);
-            } catch(e) {
-                console.log('自动检查更新失败，继续启动');
-            }
-            
-            // 完成
-            splashStatus.textContent = '准备就绪';
-            loadingBar.style.width = '100%';
-            
-            setTimeout(() => {
-                document.getElementById('splashScreen').classList.add('hidden');
-            }, 500);
-        }
-        
-        // ==================== 事件绑定 ====================
-        document.getElementById('updateBtn').addEventListener('click', doUpdate);
-        document.getElementById('laterBtn').addEventListener('click', hideUpdateModal);
-        
-        // ==================== 启动 ====================
-        document.addEventListener('DOMContentLoaded', initApp);
-        
-        // 页面可见性变化时检查更新
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible') {
-                // 每30分钟检查一次更新
-                const lastCheck = localStorage.getItem('ziliaoFenxiZhan_lastCheck');
-                const now = Date.now();
-                
-                if (!lastCheck || now - parseInt(lastCheck) > 30 * 60 * 1000) {
-                    checkForUpdate(false);
-                    localStorage.setItem('ziliaoFenxiZhan_lastCheck', now.toString());
-                }
-            }
-        });
-    </script>
+// 55张卡片数据
+const CARDS=[
+  // 模块0: 百化分 20张
+  {m:0,q:'50% = ?',a:'1/2',opts:['1/2','1/3','1/4','1/5'],exp:'50%就是一半，等于1/2'},
+  {m:0,q:'33.3% ≈ ?',a:'1/3',opts:['1/2','1/3','1/4','1/5'],exp:'33.3%≈1/3，3个33.3%≈100%'},
+  {m:0,q:'25% = ?',a:'1/4',opts:['1/2','1/3','1/4','1/5'],exp:'25%就是1/4，一个季度'},
+  {m:0,q:'20% = ?',a:'1/5',opts:['1/2','1/5','1/4','1/3'],exp:'20%就是1/5，5个20%=100%'},
+  {m:0,q:'16.7% ≈ ?',a:'1/6',opts:['1/4','1/5','1/6','1/7'],exp:'16.7%≈1/6'},
+  {m:0,q:'14.3% ≈ ?',a:'1/7',opts:['1/5','1/6','1/7','1/8'],exp:'14.3%≈1/7，一周7天'},
+  {m:0,q:'12.5% = ?',a:'1/8',opts:['1/6','1/7','1/8','1/9'],exp:'12.5%精确等于1/8'},
+  {m:0,q:'11.1% ≈ ?',a:'1/9',opts:['1/8','1/9','1/10','1/11'],exp:'11.1%≈1/9'},
+  {m:0,q:'10% = ?',a:'1/10',opts:['1/8','1/9','1/10','1/11'],exp:'10%就是1/10，最简单'},
+  {m:0,q:'9.1% ≈ ?',a:'1/11',opts:['1/10','1/11','1/12','1/13'],exp:'9.1%≈1/11'},
+  {m:0,q:'8.3% ≈ ?',a:'1/12',opts:['1/10','1/11','1/12','1/13'],exp:'8.3%≈1/12，一年12个月'},
+  {m:0,q:'7.7% ≈ ?',a:'1/13',opts:['1/11','1/12','1/13','1/14'],exp:'7.7%≈1/13'},
+  {m:0,q:'7.1% ≈ ?',a:'1/14',opts:['1/12','1/13','1/14','1/15'],exp:'7.1%≈1/14'},
+  {m:0,q:'6.7% ≈ ?',a:'1/15',opts:['1/13','1/14','1/15','1/16'],exp:'6.7%≈1/15'},
+  {m:0,q:'6.25% = ?',a:'1/16',opts:['1/14','1/15','1/16','1/17'],exp:'6.25%精确等于1/16'},
+  {m:0,q:'5.9% ≈ ?',a:'1/17',opts:['1/15','1/16','1/17','1/18'],exp:'5.9%≈1/17'},
+  {m:0,q:'5.6% ≈ ?',a:'1/18',opts:['1/16','1/17','1/18','1/19'],exp:'5.6%≈1/18'},
+  {m:0,q:'5.3% ≈ ?',a:'1/19',opts:['1/17','1/18','1/19','1/20'],exp:'5.3%≈1/19'},
+  {m:0,q:'4% = ?',a:'1/25',opts:['1/20','1/25','1/30','1/50'],exp:'4%精确等于1/25'},
+  {m:0,q:'2% = ?',a:'1/50',opts:['1/25','1/40','1/50','1/100'],exp:'2%精确等于1/50'},
+  // 模块1: 核心公式 15张
+  {m:1,q:'基期量 = ?',a:'现期量÷(1+r)',opts:['现期量×(1+r)','现期量÷(1+r)','现期量×r','现期量-r'],exp:'已知现期和增长率，基期=现期÷(1+r)'},
+  {m:1,q:'现期量 = ?',a:'基期量×(1+r)',opts:['基期量÷(1+r)','基期量×(1+r)','基期量×r','基期量+r'],exp:'已知基期和增长率，现期=基期×(1+r)'},
+  {m:1,q:'增长率r = ?',a:'(现期-基期)÷基期',opts:['现期÷基期','(现期-基期)÷基期','基期÷现期','现期-基期'],exp:'增长率=(现期-基期)÷基期'},
+  {m:1,q:'增长量 = ?',a:'现期量×r÷(1+r)',opts:['现期量×r','现期量÷r','现期量×r÷(1+r)','基期量×r'],exp:'增长量=现期×r÷(1+r)，可用百化分'},
+  {m:1,q:'间隔增长率 = ?',a:'r1+r2+r1×r2',opts:['r1+r2','r1×r2','r1+r2+r1×r2','r1-r2'],exp:'间隔增长率=r1+r2+r1×r2'},
+  {m:1,q:'乘积增长率：总额=单价×数量，则r总=?',a:'r单+r数+r单×r数',opts:['r单+r数','r单×r数','r单+r数+r单×r数','r单-r数'],exp:'乘积增长率=rA+rB+rA×rB'},
+  {m:1,q:'两期比重升降：a>b则比重?（a分子增长率，b分母增长率）',a:'上升',opts:['上升','下降','不变','无法判断'],exp:'两期比重：a>b则上升，a<b则下降'},
+  {m:1,q:'两期比重差值公式：',a:'(A/B)×(a-b)/(1+a)',opts:['(A/B)×(a-b)','(A/B)×(a-b)/(1+a)','A×(a-b)/B','(A/B)×a-b'],exp:'两期比重差=(A/B)×(a-b)/(1+a)'},
+  {m:1,q:'平均数增长率公式：',a:'(a-b)/(1+b)',opts:['a-b','(a-b)/(1+b)','(b-a)/(1+a)','a/b-1'],exp:'平均数增长率=(a-b)/(1+b)'},
+  {m:1,q:'拉动增长率 = ?',a:'部分增长量÷整体基期量',opts:['部分增长量÷整体现期','部分增长量÷整体基期量','整体增长量÷部分基期','整体÷部分'],exp:'拉动增长率=部分增长量÷整体基期量×100%'},
+  {m:1,q:'增长贡献率 = ?',a:'部分增长量÷整体增长量',opts:['部分÷整体','部分增长量÷整体增长量','部分增长率÷整体增长率','整体增长量÷部分增长量'],exp:'增长贡献率=部分增长量÷整体增长量×100%'},
+  {m:1,q:'基期比重 = ?',a:'(A/B)×(1+b)/(1+a)',opts:['A/B','(A/B)×(1+b)/(1+a)','A×(1+a)/B','A÷(B×(1+b))'],exp:'基期比重=(A/B)×(1+b)/(1+a)'},
+  {m:1,q:'年均增长率比较：当年数相同，比较?',a:'末期/初期',opts:['总增长率','末期/初期','平均增长量','初期/末期'],exp:'年数相同时，直接比较末期/初期'},
+  {m:1,q:'混合增长率：整体增长率介于?',a:'两部分增长率之间',opts:['两部分增长率之间','较大增长率','较小增长率','平均增长率'],exp:'混合增长率居中，介于两部分之间'},
+  {m:1,q:'化除为乘：1/(1+r)≈?',a:'1-r',opts:['1+r','1-r','r','1+r²'],exp:'当r较小时，1/(1+r)≈1-r'},
+  // 模块2: 速算技巧 10张
+  {m:2,q:'截位直除一步除法：应截?',a:'分母',opts:['分子','分母','分子分母都截','都不截'],exp:'一步除法直截分母'},
+  {m:2,q:'截位直除多步除法：应截?',a:'分子分母都截',opts:['只截分子','只截分母','分子分母都截','都不截'],exp:'多步除法分子分母都截，截完约分'},
+  {m:2,q:'选项差距大时截几位?',a:'2位',opts:['1位','2位','3位','4位'],exp:'选项差距大截2位，差距小截3位'},
+  {m:2,q:'分数比较：分子大分母小，则?',a:'分数大',opts:['分数大','分数小','无法判断','一样大'],exp:'分子快看分子，分母大看分母'},
+  {m:2,q:'×1.5 = ?',a:'原数+一半',opts:['原数+1.5','原数+一半','原数×1.5+1','原数÷1.5'],exp:'×1.5=原数+原数的一半'},
+  {m:2,q:'÷5 = ?',a:'×2，小数点左移',opts:['×5','×2左移','÷2','×0.5'],exp:'除以5等于乘以2，小数点左移一位'},
+  {m:2,q:'分数拆分化1法：把分数拆成?',a:'1±小分数',opts:['2±大分数','1±小分数','3±分数','整数±分数'],exp:'化1法：拆成1±小分数'},
+  {m:2,q:'判断超过10%：增长量>基期/?',a:'10',opts:['5','8','10','20'],exp:'超过10%→增长量>基期/10'},
+  {m:2,q:'判断超过20%：增长量>基期/?',a:'5',opts:['2','4','5','10'],exp:'超过20%→增长量>基期/5'},
+  {m:2,q:'判断超过50%：增长量>基期/?',a:'2',opts:['1','2','3','4'],exp:'超过50%→增长量>基期/2'},
+  // 模块3: 易错辨析 10张
+  {m:3,q:'百分点表示?',a:'百分数的变化',opts:['百分数','百分数的变化','倍数','绝对值'],exp:'百分点表示百分数的变化，用加减法'},
+  {m:3,q:'增幅、降幅、变化幅度的区别：增幅带?比',a:'正负号',opts:['绝对值','正负号','大小','正数'],exp:'增幅带正负号，降幅取绝对值'},
+  {m:3,q:'A比B增长2倍，则A是B的?',a:'3倍',opts:['2倍','3倍','1倍','无法判断'],exp:'增长倍数=倍数-1，所以是3倍'},
+  {m:3,q:'翻2番等于原来的?',a:'4倍',opts:['2倍','4倍','8倍','16倍'],exp:'翻n番=2^n倍，翻2番=4倍'},
+  {m:3,q:'同比是与?',a:'上年同期',opts:['上月','上年同期','上季度','上一天'],exp:'同比=与上年同期相比'},
+  {m:3,q:'环比是与?',a:'相邻上一期',opts:['上年同期','相邻上一期','固定周期','去年同期'],exp:'环比=与紧紧相邻的上一统计周期相比'},
+  {m:3,q:'名义增长率?实际增长率（物价上涨时）',a:'>',opts:['>','<','=','≤'],exp:'名义增长率>实际增长率，说明物价上涨'},
+  {m:3,q:'化除为乘不可用条件：4%≤|r|≤?且选项接近',a:'5%',opts:['3%','4%','5%','6%'],exp:'化除为乘不可用：4%≤|r|≤5%且选项接近'},
+  {m:3,q:'两期比重升降判断：需比较?',a:'a与b带正负号',opts:['a与b的绝对值','a与b带正负号','a-b','b-a'],exp:'比较a和b时要带正负号比较'},
+  {m:3,q:'混合增长率反例：两部增长率差?时需估算基期',a:'很大（几十个百分点）',opts:['很小','较大','很大（几十个百分点）','相等'],exp:'r相差很大时，混合增长率可能"叛逃"，需用基期量'}
+];
+
+let data={wrongBook:[],todayStats:{learned:0,correct:0,total:0},streak:0};
+let currentModule=-1;
+let currentIndex=0;
+let cardQueue=[];
+let answered=false;
+
+function init(){
+  const saved=localStorage.getItem(STORAGE_KEY);
+  if(saved)data=JSON.parse(saved);
+  updateStats();
+}
+
+function save(){
+  localStorage.setItem(STORAGE_KEY,JSON.stringify(data));
+}
+
+function updateStats(){
+  document.getElementById('stat-learned').textContent=data.todayStats.learned;
+  document.getElementById('stat-correct').textContent=data.todayStats.correct;
+  document.getElementById('stat-accuracy').textContent=data.todayStats.total>0?Math.round(data.todayStats.correct/data.todayStats.total*100)+'%':'-';
+}
+
+function startModule(m){
+  currentModule=m;
+  cardQueue=CARDS.filter(c=>c.m===m);
+  shuffle(cardQueue);
+  currentIndex=0;
+  showCard();
+  document.getElementById('home').style.display='none';
+  document.getElementById('learn').style.display='block';
+  document.getElementById('module-name').textContent=['百化分速查','核心公式','速算技巧','易错辨析'][m];
+}
+
+function showCard(){
+  if(currentIndex>=cardQueue.length){
+    showResult();
+    return;
+  }
+  const card=cardQueue[currentIndex];
+  document.getElementById('card-num').textContent=`${currentIndex+1}/${cardQueue.length}`;
+  document.getElementById('question').textContent=card.q;
+  document.getElementById('explanation').style.display='none';
+  document.getElementById('explanation').textContent=card.exp;
+  
+  const optsEl=document.getElementById('options');
+  optsEl.innerHTML='';
+  shuffle(card.opts).forEach((opt,i)=>{
+    const btn=document.createElement('button');
+    btn.className='opt-btn';
+    btn.textContent=opt;
+    btn.onclick=()=>selectAns(opt,card.a,btn);
+    optsEl.appendChild(btn);
+  });
+  answered=false;
+}
+
+function selectAns(opt,correct,btnEl){
+  if(answered)return;
+  answered=true;
+  data.todayStats.total++;
+  
+  const btns=document.querySelectorAll('.opt-btn');
+  btns.forEach(b=>b.style.pointerEvents='none');
+  
+  if(opt===correct){
+    btnEl.classList.add('correct');
+    data.todayStats.correct++;
+    data.todayStats.learned++;
+    save();
+    updateStats();
+    setTimeout(()=>{currentIndex++;showCard()},800);
+  }else{
+    btnEl.classList.add('wrong');
+    btns.forEach(b=>{if(b.textContent===correct)b.classList.add('correct')});
+    document.getElementById('explanation').style.display='block';
+    addToWrong(cardQueue[currentIndex]);
+    save();
+    updateStats();
+    setTimeout(()=>{currentIndex++;showCard()},2000);
+  }
+}
+
+function addToWrong(card){
+  const exists=data.wrongBook.find(w=>w.q===card.q);
+  if(exists){
+    exists.wrongCount++;
+    exists.interval=Math.min(exists.interval*2,86400000);
+    exists.nextReview=Date.now()+exists.interval;
+  }else{
+    data.wrongBook.push({q:card.q,interval:300000,nextReview:Date.now()+300000,wrongCount:1});
+  }
+}
+
+function showResult(){
+  const acc=Math.round(data.todayStats.correct/data.todayStats.total*100);
+  document.getElementById('learn').style.display='none';
+  document.getElementById('result').style.display='block';
+  document.getElementById('result-title').textContent=currentIndex>=cardQueue.length?'🎉 完成！':'💪 继续加油';
+  document.getElementById('result-stats').textContent=`正确率：${acc}%（${data.todayStats.correct}/${data.todayStats.total}）`;
+}
+
+function backHome(){
+  document.getElementById('home').style.display='block';
+  document.getElementById('learn').style.display='none';
+  document.getElementById('result').style.display='none';
+  data={wrongBook:data.wrongBook,todayStats:{learned:0,correct:0,total:0},streak:0};
+  save();
+  updateStats();
+}
+
+function shuffle(arr){
+  for(let i=arr.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+  return arr;
+}
+
+init();
+</script>
+<style>
+.opt-btn{width:100%;padding:16px;margin:8px 0;background:#fff;border:2px solid #eee;border-radius:12px;font-size:16px;text-align:left;cursor:pointer;transition:all 0.2s}
+.opt-btn:active{transform:scale(0.98)}
+.opt-btn.correct{background:#e8f5e9;border-color:#4caf50}
+.opt-btn.wrong{background:#ffebee;border-color:#f44336}
+#learn,#result{display:none;padding:20px;min-height:100vh;background:#f5f5f5}
+#card-num{text-align:center;color:#888;font-size:14px;margin-bottom:20px}
+#question{font-size:20px;font-weight:600;text-align:center;margin-bottom:24px;line-height:1.6}
+#explanation{background:#fff3e0;padding:16px;border-radius:12px;margin-top:16px;font-size:14px;color:#e65100;display:none}
+#result{padding-top:40px;text-align:center}
+#result h2{font-size:28px;margin-bottom:20px}
+#result-stats{font-size:18px;color:#666;margin-bottom:30px}
+</style>
+<div id="home" class="content">
+  <div style="display:flex;justify-content:space-around;margin-top:16px;background:#fff;padding:16px;border-radius:12px">
+    <div><div id="stat-learned" style="font-size:24px;font-weight:700;color:#FF6B35">0</div><div style="font-size:12px;color:#888">今日学习</div></div>
+    <div><div id="stat-correct" style="font-size:24px;font-weight:700;color:#4caf50">0</div><div style="font-size:12px;color:#888">答对</div></div>
+    <div><div id="stat-accuracy" style="font-size:24px;font-weight:700;color:#2196f3">-</div><div style="font-size:12px;color:#888">正确率</div></div>
+  </div>
+</div>
+<div id="learn">
+  <div style="background:#fff;border-radius:12px;padding:24px;margin-bottom:16px">
+    <div id="module-name" style="text-align:center;font-weight:600;color:#FF6B35;margin-bottom:16px"></div>
+    <div id="card-num"></div>
+    <div id="question"></div>
+    <div id="options"></div>
+    <div id="explanation"></div>
+  </div>
+  <button onclick="backHome()" style="width:100%;padding:14px;background:#fff;border:none;border-radius:12px;font-size:16px;margin-top:16px">返回首页</button>
+</div>
+<div id="result">
+  <h2 id="result-title"></h2>
+  <p id="result-stats"></p>
+  <button onclick="backHome()" style="padding:14px 40px;background:#FF6B35;color:#fff;border:none;border-radius:12px;font-size:16px">再学一次</button>
+</div>
 </body>
 </html>
