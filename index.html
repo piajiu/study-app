@@ -2130,13 +2130,19 @@
             btn.textContent = '检查中...';
             
             try {
+                // 添加超时机制，3秒超时
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 3000);
+                
                 const response = await fetch(CONFIG_URL, {
                     method: 'GET',
                     headers: {
                         'Accept': 'application/json'
                     },
-                    cache: 'no-cache'
+                    cache: 'no-cache',
+                    signal: controller.signal
                 });
+                clearTimeout(timeoutId);
                 
                 if (!response.ok) {
                     throw new Error('网络请求失败');
